@@ -86,19 +86,58 @@ class Provider {
       results.push({ id: url, title, url, subOrDub: "sub" });
     });
 
-    return results;
+    // Expose one search entry per season so findEpisodes() can return episode
+    // numbers starting at 1 for each season (same approach as aniworld).
+    const expanded = await Promise.all(results.map(async result => {
+      try {
+        const seasons = await this.getSeasons(result.url);
+        if (seasons.length <= 1) return [result];
+        return seasons.map(season => ({
+          id: `${result.url}|season:${season}`,
+          title: `${result.title} - Temporada ${season}`,
+          url: result.url,
+          subOrDub: "sub",
+        }));
+      } catch (error) {
+        return [result];
+      }
+    }));
+    return expanded.flat();
+  }
+
+  async getSeasons(seriesUrl) {
+    const res = await this.request(seriesUrl);
+    const $ = LoadDoc(await res.text());
+    const seasons = [];
+    $("#seasons .se-c").each((_, element) => {
+      const number = parseInt(element.find(".se-q .se-t").first().text(), 10);
+      if (Number.isFinite(number) && !seasons.includes(number)) seasons.push(number);
+    });
+    return seasons;
   }
 
   async findEpisodes(id) {
-    const res = await this.request(this.absoluteUrl(id));
+    const parts = String(id).split("|");
+    const seriesUrl = this.absoluteUrl(parts[0]);
+    const seasonPart = parts.find(part => part.startsWith("season:"));
+    const onlySeason = seasonPart ? parseInt(seasonPart.split(":")[1], 10) : null;
+
+    const res = await this.request(seriesUrl);
     const $ = LoadDoc(await res.text());
+    const seasons = [];
+    $("#seasons .se-c").each((_, element) => seasons.push(element));
+
+    // A bare series ID with several seasons would produce duplicate numbers,
+    // so fall back to absolute numbering only in that case.
+    const absoluteFallback = onlySeason === null && seasons.length > 1;
     const episodes = [];
     const seen = new Set();
     let absolute = 0;
 
-    $("#seasons .se-c").each((_, seasonElement) => {
+    seasons.forEach(seasonElement => {
       const $season = seasonElement;
       const season = parseInt($season.find(".se-q .se-t").first().text(), 10) || 1;
+      if (onlySeason !== null && season !== onlySeason) return;
 
       $season.find("ul.episodios li").each((__, item) => {
         const $item = item;
@@ -113,14 +152,15 @@ class Provider {
         absolute += 1;
         const numbering = $item.find(".numerando").first().text().trim();
         const match = numbering.match(/(\d+)\s*-\s*(\d+)/);
-        const number = match ? parseInt(match[2], 10) : absolute;
-        const title = link.text().trim() || `Episodio ${number}`;
+        const seasonNumber = match ? parseInt(match[2], 10) : absolute;
+        const number = absoluteFallback ? absolute : seasonNumber;
+        const title = link.text().trim() || `Episodio ${seasonNumber}`;
 
         episodes.push({
           id: url,
-          number: absolute,
+          number,
           url,
-          title: `T${season}E${number} - ${title}`,
+          title: absoluteFallback ? `T${season}E${seasonNumber} - ${title}` : title,
         });
       });
     });
@@ -205,6 +245,7 @@ class Provider {
     try {
       browser = await ChromeDP.newBrowser({ timeout: 30, userAgent: this.userAgent });
       const found = [];
+      const bodyRequests = [];
       const collect = url => {
         if (!this.isMediaUrl(url) || found.includes(url)) return;
         found.push(url);
@@ -214,6 +255,9 @@ class Provider {
         const response = params?.response || {};
         const mime = String(response.mimeType || "");
         if (this.isMediaUrl(response.url) || /mpegurl|video\//i.test(mime)) collect(response.url);
+        if (params?.requestId && bodyRequests.length < 8 && (/json|javascript/i.test(mime) || /api|player|source/i.test(response.url || ""))) {
+          bodyRequests.push(params.requestId);
+        }
       };
 
       try { browser.listenTarget(onEvent); } catch (error) {}
@@ -226,12 +270,25 @@ class Provider {
       }
       await browser.sleep(4000);
 
-      try {
-        const result = await browser.evaluate(EXTRACT_SOURCES_JS);
-        const list = Array.isArray(result) ? result : result?.sources || [];
-        for (const url of list) collect(url);
-      } catch (error) {
-        console.log(`[Danimados] Source extraction failed: ${error?.message || error}`);
+      // Inspect API responses: several hosts hide the real .m3u8 inside JSON.
+      for (const requestId of bodyRequests) {
+        try {
+          const body = await browser.executeCDP("Network.getResponseBody", { requestId });
+          if (body?.body) {
+            for (const url of this.extractSources(body.body, embedUrl)) collect(url);
+          }
+        } catch (error) {}
+      }
+
+      for (let attempt = 0; attempt < 2 && !found.length; attempt++) {
+        try {
+          const result = await browser.evaluate(EXTRACT_SOURCES_JS);
+          const list = Array.isArray(result) ? result : result?.sources || [];
+          for (const url of list) collect(url);
+        } catch (error) {
+          console.log(`[Danimados] Source extraction failed: ${error?.message || error}`);
+        }
+        if (!found.length) await browser.sleep(4000);
       }
       return found;
     } catch (error) {

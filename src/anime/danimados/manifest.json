@@ -3,7 +3,7 @@
   "name": "Danimados",
   "description": "Danimados is a Spanish-language provider for western animated series and cartoons.",
   "manifestURI": "https://raw.githubusercontent.com/edwin-olivo/Seanime-Providers/main/src/anime/danimados/manifest.json",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Pal",
   "type": "onlinestream-provider",
   "language": "javascript",

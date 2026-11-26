@@ -68,11 +68,20 @@ class Provider {
   }
 
   async search(opts) {
-    const query = String(opts?.query || opts?.opts?.query || "").trim();
+    // Seanime passes SearchOptions; the Playground/checker may pass a plain string.
+    const query = String((opts && (opts.query || (opts.opts && opts.opts.query))) || opts || "").trim();
+    console.log(`[Danimados] search query: ${JSON.stringify(query)}`);
     if (!query) return [];
 
-    const res = await this.request(`${this.base}/?s=${encodeURIComponent(query)}`);
-    const $ = LoadDoc(await res.text());
+    let html;
+    try {
+      const res = await this.request(`${this.base}/?s=${encodeURIComponent(query)}`);
+      html = await res.text();
+    } catch (error) {
+      console.log(`[Danimados] search request failed: ${error?.message || error}`);
+      return [];
+    }
+    const $ = LoadDoc(html);
     const results = [];
     const seen = new Set();
 
@@ -86,23 +95,32 @@ class Provider {
       results.push({ id: url, title, url, subOrDub: "sub" });
     });
 
+    console.log(`[Danimados] series found: ${results.length}`);
+
     // Expose one search entry per season so findEpisodes() can return episode
     // numbers starting at 1 for each season (same approach as aniworld).
-    const expanded = await Promise.all(results.map(async result => {
+    const expanded = [];
+    for (const result of results) {
       try {
         const seasons = await this.getSeasons(result.url);
-        if (seasons.length <= 1) return [result];
-        return seasons.map(season => ({
-          id: `${result.url}|season:${season}`,
-          title: `${result.title} - Temporada ${season}`,
-          url: result.url,
-          subOrDub: "sub",
-        }));
+        if (seasons.length <= 1) {
+          expanded.push(result);
+          continue;
+        }
+        for (const season of seasons) {
+          expanded.push({
+            id: `${result.url}|season:${season}`,
+            title: `${result.title} - Temporada ${season}`,
+            url: result.url,
+            subOrDub: "sub",
+          });
+        }
       } catch (error) {
-        return [result];
+        expanded.push(result);
       }
-    }));
-    return expanded.flat();
+    }
+    console.log(`[Danimados] results returned: ${expanded.length}`);
+    return expanded;
   }
 
   async getSeasons(seriesUrl) {

@@ -186,6 +186,7 @@ class Provider {
     // A bare series ID with several seasons would produce duplicate numbers,
     // so fall back to absolute numbering only in that case.
     const absoluteFallback = onlySeason === null && seasons.length > 1;
+    console.log(`[Danimados] findEpisodes ${seriesUrl} season=${onlySeason || "all"}`);
     const episodes = [];
     const seen = new Set();
     let absolute = 0;
@@ -221,6 +222,7 @@ class Provider {
       });
     });
 
+    console.log(`[Danimados] findEpisodes returned ${episodes.length} episodes`);
     return episodes;
   }
 
@@ -239,6 +241,7 @@ class Provider {
         type: $option.attr("data-type") || "tv",
       });
     });
+    console.log(`[Danimados] findEpisodeServer ${episodeUrl} requested=${server} options=${JSON.stringify(options.map(option => option.name))}`);
     if (!options.length) throw new Error("No Danimados video servers found");
 
     const wanted = String(server || "").trim().toLowerCase();
@@ -248,9 +251,15 @@ class Provider {
       options[0];
 
     const embedUrl = await this.getEmbedUrl(selected, episodeUrl);
+    console.log(`[Danimados] selected=${selected.name} embed=${embedUrl}`);
     let sources = await this.resolveWithBrowser(embedUrl);
-    if (!sources.length) sources = await this.resolveWithFetch(embedUrl);
+    console.log(`[Danimados] browser sources=${sources.length}`);
+    if (!sources.length) {
+      sources = await this.resolveWithFetch(embedUrl);
+      console.log(`[Danimados] fetch fallback sources=${sources.length}`);
+    }
     sources = this.rankSources(sources);
+    console.log(`[Danimados] final sources=${sources.length}`);
     if (!sources.length) throw new Error(`No video source found for ${selected.name}`);
 
     return {
@@ -295,7 +304,10 @@ class Provider {
   }
 
   async resolveWithBrowser(embedUrl) {
-    if (typeof ChromeDP === "undefined" || typeof ChromeDP.newBrowser !== "function") return [];
+    if (typeof ChromeDP === "undefined" || typeof ChromeDP.newBrowser !== "function") {
+      console.log("[Danimados] ChromeDP unavailable");
+      return [];
+    }
 
     let browser;
     try {

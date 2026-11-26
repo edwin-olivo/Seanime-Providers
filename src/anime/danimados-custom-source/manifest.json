@@ -3,7 +3,7 @@
   "name": "Danimados (Custom Source)",
   "description": "Adds the full Danimados catalog of western animated series and cartoons as a searchable Seanime custom source.",
   "manifestURI": "https://raw.githubusercontent.com/edwin-olivo/Seanime-Providers/main/src/anime/danimados-custom-source/manifest.json",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Pal",
   "type": "custom-source",
   "language": "javascript",

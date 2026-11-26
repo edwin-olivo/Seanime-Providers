@@ -15,7 +15,8 @@ class Provider {
     this.userAgent =
       "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36";
     this.idsKey = "danimados.custom.ids";
-    this.seriesKeyPrefix = "danimados.custom.series.";
+    // v2 adds description and genres to the cached series payload.
+    this.seriesKeyPrefix = "danimados.custom.series.v2.";
   }
 
   getSettings() {
@@ -105,6 +106,8 @@ class Provider {
         image: info.image,
         year: info.year,
         episodes: info.episodes.length,
+        description: info.description,
+        genres: info.genres,
       }));
     }
     return out;
@@ -150,8 +153,17 @@ class Provider {
     };
   }
 
-  async getAnimeDetails(_id) {
-    return null;
+  async getAnimeDetails(id) {
+    const url = this.urlForId(Number(id));
+    if (!url) return null;
+    const info = await this.fetchSeries(url, Number(id));
+    if (!info) return null;
+    return {
+      id: Number(id),
+      siteUrl: url,
+      description: info.description || "",
+      genres: info.genres || [],
+    };
   }
 
   async getManga(_ids) {
@@ -188,8 +200,8 @@ class Provider {
       synonyms: [title],
       coverImage: cover,
       bannerImage: image || undefined,
-      description: "",
-      genres: [],
+      description: item.description || "",
+      genres: item.genres || [],
       isAdult: false,
       episodes: item.episodes || undefined,
       seasonYear: item.year,
@@ -221,6 +233,12 @@ class Provider {
     const image = this.absoluteUrl($(".sheader .poster img").first().attr("src") || "", url);
     const meta = $(".sheader .meta-top").first().text();
     const yearMatch = meta.match(/\b(?:19|20)\d{2}\b/);
+    const description = $(".hero-overview").first().text().replace(/\s+/g, " ").trim();
+    const genres = [];
+    $(".sgeneros a").each((_, element) => {
+      const genre = element.text().trim();
+      if (genre && genres.indexOf(genre) === -1) genres.push(genre);
+    });
 
     const episodes = [];
     let absolute = 0;
@@ -249,6 +267,8 @@ class Provider {
       title: title || url,
       image,
       year: yearMatch ? parseInt(yearMatch[0], 10) : undefined,
+      description,
+      genres,
       episodes,
     };
     $store.set(key, info);

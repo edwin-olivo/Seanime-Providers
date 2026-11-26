@@ -887,5 +887,21 @@
       "misc",
       "large library"
     ]
+  },
+  {
+    "id": "danimados-custom-source",
+    "name": "Danimados (Custom Source)",
+    "description": "Adds the full Danimados catalog of western animated series and cartoons as a searchable Seanime custom source.",
+    "manifestURI": "https://raw.githubusercontent.com/edwin-olivo/Seanime-Providers/main/src/anime/danimados-custom-source/manifest.json",
+    "author": "Pal",
+    "type": "custom-source",
+    "language": "javascript",
+    "lang": "es",
+    "icon": "https://danimados.cc/wp-content/uploads/2026/03/180p-150x150.png",
+    "website": "https://danimados.cc/",
+    "tags": [
+      "misc",
+      "large library"
+    ]
   }
 ]

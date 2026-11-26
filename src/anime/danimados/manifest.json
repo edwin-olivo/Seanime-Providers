@@ -2,7 +2,7 @@
   "id": "danimados",
   "name": "Danimados",
   "description": "Danimados is a Spanish-language provider for western animated series and cartoons.",
-  "manifestURI": "https://raw.githubusercontent.com/Pal-droid/Seanime-Providers/main/src/anime/danimados/manifest.json",
+  "manifestURI": "https://raw.githubusercontent.com/edwin-olivo/Seanime-Providers/main/src/anime/danimados/manifest.json",
   "version": "1.0.0",
   "author": "Pal",
   "type": "onlinestream-provider",
@@ -10,5 +10,5 @@
   "lang": "es",
   "icon": "https://danimados.cc/wp-content/uploads/2026/03/180p-150x150.png",
   "website": "https://danimados.cc/",
-  "payloadURI": "https://raw.githubusercontent.com/Pal-droid/Seanime-Providers/main/src/anime/danimados/provider.js"
+  "payloadURI": "https://raw.githubusercontent.com/edwin-olivo/Seanime-Providers/main/src/anime/danimados/provider.js"
 }

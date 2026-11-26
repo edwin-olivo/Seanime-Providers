@@ -67,20 +67,37 @@ class Provider {
     };
   }
 
-  async search(opts) {
-    // Seanime passes SearchOptions; the Playground/checker may pass a plain string.
-    const query = String((opts && (opts.query || (opts.opts && opts.opts.query))) || opts || "").trim();
-    console.log(`[Danimados] search query: ${JSON.stringify(query)}`);
-    if (!query) return [];
+  buildQueries(opts) {
+    const raw = [];
+    const push = value => {
+      const text = String(value || "").trim();
+      if (text && raw.indexOf(text) === -1) raw.push(text);
+    };
 
-    let html;
-    try {
-      const res = await this.request(`${this.base}/?s=${encodeURIComponent(query)}`);
-      html = await res.text();
-    } catch (error) {
-      console.log(`[Danimados] search request failed: ${error?.message || error}`);
-      return [];
+    // Seanime passes SearchOptions; the Playground/checker may pass a plain string.
+    push(opts && typeof opts === "object" && (opts.query || (opts.opts && opts.opts.query)));
+    if (typeof opts === "string") push(opts);
+    const media = opts && opts.media;
+    if (media) {
+      push(media.englishTitle);
+      push(media.romajiTitle);
+      (media.synonyms || []).forEach(push);
     }
+
+    const queries = [];
+    for (const value of raw.slice(0, 8)) {
+      const spanish = value.replace(/\s+and\s+/gi, " y ").replace(/\s*&\s*/g, " y ");
+      const base = spanish.replace(/\s*[:(]\s*[^:(]*$/, "").trim();
+      const variants = [value, spanish, base];
+      for (const variant of variants) {
+        const text = String(variant || "").trim();
+        if (text && queries.indexOf(text) === -1) queries.push(text);
+      }
+    }
+    return queries.slice(0, 12);
+  }
+
+  parseResults(html) {
     const $ = LoadDoc(html);
     const results = [];
     const seen = new Set();
@@ -94,6 +111,27 @@ class Provider {
       seen.add(url);
       results.push({ id: url, title, url, subOrDub: "sub" });
     });
+    return results;
+  }
+
+  async search(opts) {
+    const queries = this.buildQueries(opts);
+    console.log(`[Danimados] search queries: ${JSON.stringify(queries)}`);
+
+    let results = [];
+    for (const query of queries) {
+      try {
+        const res = await this.request(`${this.base}/?s=${encodeURIComponent(query)}`);
+        const parsed = this.parseResults(await res.text());
+        if (parsed.length) {
+          console.log(`[Danimados] matched query: ${query}`);
+          results = parsed;
+          break;
+        }
+      } catch (error) {
+        console.log(`[Danimados] search request failed for "${query}": ${error?.message || error}`);
+      }
+    }
 
     console.log(`[Danimados] series found: ${results.length}`);
 

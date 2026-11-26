@@ -361,6 +361,9 @@ class Provider {
       return found;
     } catch (error) {
       console.log(`[Danimados] Browser resolution failed: ${error?.message || error}`);
+      if (/executable file not found|google-chrome/i.test(String(error?.message || error))) {
+        console.log("[Danimados] ChromeDP needs a 'google-chrome' binary in PATH (install Chrome and symlink it)");
+      }
       return [];
     } finally {
       if (browser) {

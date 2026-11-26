@@ -30,4 +30,7 @@ fallback when `ChromeDP` is unavailable.
 - Only one audio track is exposed, so `supportsDub` is `false`.
 - Season expansion adds one search result per season, which can be noisy for
   long-running shows.
+- ChromeDP resolves `google-chrome` from `PATH`. On macOS the Chrome app
+  binary is not in `PATH`, so create a symlink, e.g.:
+  `sudo ln -sf "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" /usr/local/bin/google-chrome`
 - Host availability and anti-bot behavior can change without notice.
